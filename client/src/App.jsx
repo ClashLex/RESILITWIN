@@ -25,16 +25,6 @@ const TABS = [
 const MACHINES = ['Motor MK7', 'Compressor CX2', 'Pump PX1'];
 
 /* ── Inline helpers ───────────────────────────────────── */
-function LoadingOverlay() {
-  return (
-    <div className="loading-overlay">
-      <span className="loading-gear">⚙</span>
-      <div className="loading-title">Initializing RESILITWIN OS…</div>
-      <div className="loading-sub">Connecting to sensor network</div>
-    </div>
-  );
-}
-
 function DisconnectBanner() {
   return (
     <div className="disconnect-banner">
@@ -193,8 +183,6 @@ export default function App() {
 
   return (
     <div className={`app ${chatOpen ? 'chat-sidebar-open' : ''}`}>
-      {initializing && <LoadingOverlay />}
-
       <Navbar
         connected={connected}
         liveMode={liveMode}
