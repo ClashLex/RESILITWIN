@@ -51,11 +51,16 @@ const CustomTooltip = ({ active, payload, label }) => {
 const FailureDot = (props) => {
   const { cx, cy, payload } = props;
   if (!payload?.isFailure) return null;
+  if (!cx || !cy || isNaN(cx) || isNaN(cy)) return null;
+
+  const textAnchor = cx > 250 ? 'end' : 'start';
+  const textX = cx > 250 ? cx - 12 : cx + 12;
+
   return (
     <g>
       <circle cx={cx} cy={cy} r={7} fill="var(--danger)" stroke="#ff0000" strokeWidth={2}
         style={{ filter: 'drop-shadow(0 0 6px var(--danger))' }} />
-      <text x={cx + 10} y={cy - 8} fill="var(--danger)" fontSize={10} fontWeight={700} fontFamily="'Courier New', monospace">
+      <text x={textX} y={cy - 8} fill="var(--danger)" fontSize={10} fontWeight={700} fontFamily="var(--font-mono)" textAnchor={textAnchor}>
         PREDICTED FAILURE
       </text>
     </g>
@@ -82,7 +87,7 @@ export default function TrendChart({ history }) {
         <span className="chart-sub">30 actual + 10 projected points</span>
       </div>
       <div className="no-theme-transition">
-        <ResponsiveContainer width="100%" height={240}>
+        <ResponsiveContainer width="100%" height={280}>
           <ComposedChart data={chartData} margin={{ top: 14, right: 24, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
             <XAxis dataKey="label" tickFormatter={fmtTick} tick={{ fill: 'var(--text-muted)', fontSize: 9 }} interval="preserveStartEnd" tickLine={false} />
@@ -91,12 +96,15 @@ export default function TrendChart({ history }) {
             <Legend formatter={v => <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{v}</span>} />
             <ReferenceLine y={9.0} stroke="var(--danger)"  strokeDasharray="6 3"
               label={{ value: 'FAILURE 9.0',  position: 'insideTopRight', fill: 'var(--danger)',  fontSize: 10 }} />
-            <ReferenceLine y={7.0} stroke="var(--warning)" strokeDasharray="4 4"
-              label={{ value: 'CRITICAL 7.0', position: 'insideTopRight', fill: 'var(--warning)', fontSize: 10 }} />
+            <ReferenceLine y={7.0} stroke="var(--danger)" strokeDasharray="4 4"
+              label={{ value: 'CRITICAL 7.0', position: 'insideTopRight', fill: 'var(--danger)', fontSize: 10 }} />
+            <ReferenceLine y={4.0} stroke="var(--warning)" strokeDasharray="4 4"
+              label={{ value: 'WARNING 4.0', position: 'insideTopRight', fill: 'var(--warning)', fontSize: 10 }} />
             {history.length > 0 && (
               <ReferenceLine
                 x={chartData.find(d => d.label?.startsWith('+'))?.label}
                 stroke="var(--border)" strokeDasharray="2 4"
+                label={{ value: 'PROJECTION', position: 'insideTopLeft', fill: 'var(--text-muted)', fontSize: 8 }}
               />
             )}
             <Line name="Actual"    type="monotone" dataKey="vibration" stroke="var(--accent)"  strokeWidth={2} dot={false} connectNulls isAnimationActive={false} />

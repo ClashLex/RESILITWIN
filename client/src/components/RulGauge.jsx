@@ -32,7 +32,7 @@ export default function RulGauge({ rul = 0 }) {
   const fgPath = foregroundPath(rul);
   const startPt = arcPoint(Math.PI);
   const endPt   = arcPoint(0);
-  const bgPath  = `M ${startPt.x.toFixed(2)} ${startPt.y.toFixed(2)} A ${R} ${R} 0 1 1 ${endPt.x.toFixed(2)} ${endPt.y.toFixed(2)}`;
+  const bgPath  = `M ${startPt.x.toFixed(2)} ${startPt.y.toFixed(2)} A ${R} ${R} 0 0 1 ${endPt.x.toFixed(2)} ${endPt.y.toFixed(2)}`;
 
   return (
     <div className="rul-gauge-wrap">
@@ -62,7 +62,7 @@ export default function RulGauge({ rul = 0 }) {
             <text key={v}
               x={CX + (R + 22) * Math.cos(a)} y={CY - (R + 22) * Math.sin(a)}
               textAnchor="middle" dominantBaseline="middle"
-              fill="var(--text-muted)" fontSize="9" fontFamily="'Courier New', monospace">
+              fill="var(--text-muted)" fontSize="9" fontFamily="var(--font-mono)">
               {v}
             </text>
           );
@@ -70,7 +70,7 @@ export default function RulGauge({ rul = 0 }) {
 
         {/* Center value */}
         <text x={CX} y={CY - 14} textAnchor="middle" dominantBaseline="middle"
-          fill={color} fontSize="38" fontWeight="900" fontFamily="'Courier New', monospace">
+          fill={color} fontSize="38" fontWeight="900" fontFamily="var(--font-mono)">
           {rul}
         </text>
 
@@ -82,7 +82,7 @@ export default function RulGauge({ rul = 0 }) {
 
         {/* Status label */}
         <text x={CX} y={CY + 36} textAnchor="middle"
-          fill={color} fontSize="9" fontFamily="'Courier New', monospace" fontWeight="700" letterSpacing="3">
+          fill={color} fontSize="9" fontFamily="var(--font-mono)" fontWeight="700" letterSpacing="3">
           {rulLabel(rul)}
         </text>
       </svg>
