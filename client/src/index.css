@@ -349,11 +349,17 @@ h1, h2, h3, h4 {
 .dot-sim     { background: var(--color-status-normal);   box-shadow: 0 0 6px var(--color-status-normal-glow);   animation: pulse-neon-green 2s ease-out infinite; }
 .dot-err     { background: var(--color-status-critical); box-shadow: 0 0 8px var(--color-status-critical-glow); animation: pulse-neon-red 1.2s ease-out infinite; }
 .dot-offline { background: var(--color-ink-muted-48); }
+.dot-demo    { background: var(--color-status-warning);   box-shadow: 0 0 6px var(--color-status-warning-glow);   animation: pulse-neon-amber 2s ease-out infinite; }
 
 @keyframes pulse-neon-green {
   0%   { opacity: 1;   box-shadow: 0 0 4px var(--color-status-normal-glow); }
   50%  { opacity: 0.6; box-shadow: 0 0 12px var(--color-status-normal-glow); }
   100% { opacity: 1;   box-shadow: 0 0 4px var(--color-status-normal-glow); }
+}
+@keyframes pulse-neon-amber {
+  0%   { opacity: 1;   box-shadow: 0 0 4px var(--color-status-warning-glow); }
+  50%  { opacity: 0.6; box-shadow: 0 0 12px var(--color-status-warning-glow); }
+  100% { opacity: 1;   box-shadow: 0 0 4px var(--color-status-warning-glow); }
 }
 @keyframes pulse-neon-red {
   0%   { opacity: 1;   box-shadow: 0 0 4px var(--color-status-critical-glow); }

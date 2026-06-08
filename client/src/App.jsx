@@ -58,7 +58,7 @@ function MobileSubNav({ machine, onChangeMachine, liveMode, onToggleLiveMode }) 
 /* ── Main App ─────────────────────────────────────────── */
 export default function App() {
   const [machine,      setMachine]      = useState('Motor MK7');
-  const { latest, history, alerts, allAlerts, connected, initializing } = useWebSocket(machine);
+  const { latest, history, alerts, allAlerts, connected, initializing, isDemoMode, triggerLocalAnomaly } = useWebSocket(machine);
   const { theme } = useTheme();
   const [activeTab,    setActiveTab]    = useState('dashboard');
   const [liveMode,     setLiveMode]     = useState(false);
@@ -113,12 +113,16 @@ export default function App() {
 
   const triggerAnomaly = async () => {
     try {
-      await fetch(`${apiBase}/api/trigger-anomaly`, {
+      const response = await fetch(`${apiBase}/api/trigger-anomaly`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ machine }),
       });
+      if (response.ok) return;
     } catch {}
+    if (triggerLocalAnomaly) {
+      triggerLocalAnomaly();
+    }
   };
 
   /* ── Snapshot ───────────────────────────────────────── */
@@ -191,6 +195,7 @@ export default function App() {
         machine={machine}
         onChangeMachine={setMachine}
         onTriggerAnomaly={triggerAnomaly}
+        isDemoMode={isDemoMode}
       />
 
       <MobileSubNav

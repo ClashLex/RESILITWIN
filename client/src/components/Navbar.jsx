@@ -29,7 +29,7 @@ function ThemeTogglePill() {
 
 export default function Navbar({
   connected, liveMode, onToggleLiveMode, deviceStatus = 'simulation',
-  machine, onChangeMachine, onTriggerAnomaly,
+  machine, onChangeMachine, onTriggerAnomaly, isDemoMode,
 }) {
   const { theme, toggleTheme } = useTheme();
   const [time, setTime] = useState(new Date());
@@ -51,10 +51,10 @@ export default function Navbar({
       </div>
       {/* Center — connection status + machine name */}
       <div className="global-nav-center">
-        <span className={`status-dot ${connected ? 'dot-live' : 'dot-offline'}`}
-          title={connected ? 'WebSocket live' : 'Reconnecting…'} />
+        <span className={`status-dot ${connected ? 'dot-live' : isDemoMode ? 'dot-demo' : 'dot-offline'}`}
+          title={connected ? 'WebSocket live' : isDemoMode ? 'Running in local Demo Mode' : 'Reconnecting…'} />
         <span className="global-nav-machine">{machine ?? 'Motor MK7'}</span>
-        <span className="global-nav-live global-nav-live-hide">{connected ? 'LIVE' : 'RECONNECTING'}</span>
+        <span className="global-nav-live global-nav-live-hide">{connected ? 'LIVE' : isDemoMode ? 'DEMO MODE' : 'RECONNECTING'}</span>
       </div>
 
       {/* Right — desktop controls */}
