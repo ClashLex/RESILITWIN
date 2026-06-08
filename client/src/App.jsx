@@ -67,23 +67,41 @@ function MobileSubNav({ machine, onChangeMachine, liveMode, onToggleLiveMode }) 
 
 /* ── Main App ─────────────────────────────────────────── */
 export default function App() {
-  const { latest, history, alerts, allAlerts, connected, initializing } = useWebSocket();
+  const [machine,      setMachine]      = useState('Motor MK7');
+  const { latest, history, alerts, allAlerts, connected, initializing } = useWebSocket(machine);
   const { theme } = useTheme();
   const [activeTab,    setActiveTab]    = useState('dashboard');
   const [liveMode,     setLiveMode]     = useState(false);
   const [deviceStatus, setDeviceStatus] = useState('simulation');
   const [chatOpen,     setChatOpen]     = useState(false);
   const [aiAlerts,     setAiAlerts]     = useState([]);
-  const [machine,      setMachine]      = useState('Motor MK7');
   const prevStatusRef     = useRef(null);
   const lastAlertAtRef    = useRef(0);
   const ALERT_COOLDOWN_MS = 30000;
+
+  const apiBase = import.meta.env.VITE_BACKEND_URL
+    ? `${window.location.protocol}//${import.meta.env.VITE_BACKEND_URL}`
+    : '';
+
+  /* ── Sync active machine to backend ──────────────────── */
+  useEffect(() => {
+    const syncMachine = async () => {
+      try {
+        await fetch(`${apiBase}/api/machine`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ machineId: machine }),
+        });
+      } catch {}
+    };
+    syncMachine();
+  }, [machine]);
 
   /* ── Live mode polling ──────────────────────────────── */
   useEffect(() => {
     const poll = async () => {
       try {
-        const r = await fetch('/api/mode');
+        const r = await fetch(`${apiBase}/api/mode`);
         const d = await r.json();
         setLiveMode(d.liveMode);
         setDeviceStatus(d.deviceStatus);
@@ -97,14 +115,20 @@ export default function App() {
   const handleToggleLiveMode = async () => {
     const next = !liveMode;
     try {
-      await fetch('/api/mode', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ live: next }) });
+      await fetch(`${apiBase}/api/mode`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ live: next }) });
       setLiveMode(next);
       setDeviceStatus(next ? 'disconnected' : 'simulation');
     } catch {}
   };
 
   const triggerAnomaly = async () => {
-    try { await fetch('/api/trigger-anomaly', { method: 'POST' }); } catch {}
+    try {
+      await fetch(`${apiBase}/api/trigger-anomaly`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ machine }),
+      });
+    } catch {}
   };
 
   /* ── Snapshot ───────────────────────────────────────── */
@@ -131,10 +155,11 @@ export default function App() {
     const autoMsg = `The system just entered CRITICAL status. Vibration is at ${latest.vibration} mm/s and temperature is ${latest.temperature}°C. Generate a brief urgent maintenance alert for the operator with specific immediate actions.`;
     (async () => {
       try {
-        const response = await fetch('/api/chat', {
+        const response = await fetch(`${apiBase}/api/chat`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: autoMsg, systemSnapshot: snapshot }),
         });
+        if (!response.ok) return;
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '', text = '';

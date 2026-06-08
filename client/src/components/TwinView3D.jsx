@@ -190,87 +190,264 @@ function TwinView3DInner({ sensorData, status = 'NORMAL', theme = 'dark', machin
     statusLight.position.set(0, 5, 0);
     scene.add(statusLight);
 
-    /* ── Motor Group ────────────────────────────────── */
+    /* ── Motor Group (Active Machine Group) ────────────────────────────────── */
     const motorGroup = new THREE.Group();
     motorGroup.position.set(0, 0, 0);
     scene.add(motorGroup);
 
-    /* Motor body — cylinder, horizontal (axis along X) */
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: dark ? '#2d3748' : '#64748b', roughness: 0.7, metalness: 0.35,
-    });
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 3, 32), bodyMat);
-    body.rotation.z = Math.PI / 2;
-    body.castShadow = true;
-    motorGroup.add(body);
-
-    /* End caps */
-    const capMat = new THREE.MeshStandardMaterial({
-      color: dark ? '#374151' : '#6b7280', roughness: 0.6, metalness: 0.4,
-    });
-    [1.52, -1.52].forEach((x, i) => {
-      const cap = new THREE.Mesh(new THREE.CircleGeometry(1.2, 32), capMat);
-      cap.position.x = x;
-      cap.rotation.y = i === 0 ? Math.PI / 2 : -Math.PI / 2;
-      motorGroup.add(cap);
-    });
-
-    /* Shaft — inside a group so we can spin it cleanly */
+    let bearings = [];
     const shaftGroup = new THREE.Group();
     motorGroup.add(shaftGroup);
-    const shaftMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', metalness: 0.8, roughness: 0.2 });
-    const shaftMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 5.2, 16), shaftMat);
-    shaftMesh.rotation.z = Math.PI / 2;
-    shaftMesh.castShadow = true;
-    shaftGroup.add(shaftMesh);
 
-    /* Bearings — torus rings perpendicular to shaft (X) axis */
     const initBearingColor = STATUS_COLOR[statusRef.current] ?? STATUS_COLOR.NORMAL;
     const pc0 = PULSE_CFG[statusRef.current] ?? PULSE_CFG.NORMAL;
-    const bearings = [-1.8, -0.6, 0.6, 1.8].map(x => {
-      const mat = new THREE.MeshStandardMaterial({
-        color: initBearingColor, emissive: initBearingColor,
-        emissiveIntensity: pc0.min, metalness: 0.7, roughness: 0.3,
-      });
-      const torus = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.12, 16, 32), mat);
-      torus.position.x = x;
-      torus.rotation.y = Math.PI / 2;   /* ring around X axis */
-      torus.castShadow = true;
-      motorGroup.add(torus);
-      return torus;
-    });
 
-    /* Cooling fins — 8 fins running along motor length, at radius 1.28 */
-    const finMat = new THREE.MeshStandardMaterial({
-      color: dark ? '#1e293b' : '#475569', roughness: 0.8, metalness: 0.2,
-    });
-    for (let i = 0; i < 8; i++) {
-      const angle = (i / 8) * Math.PI * 2;
-      const fin = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.6, 0.08), finMat);
-      fin.position.set(0, Math.sin(angle) * 1.28, Math.cos(angle) * 1.28);
-      fin.rotation.x = angle;
-      fin.castShadow = true;
-      motorGroup.add(fin);
+    if (machine === 'Compressor CX2') {
+      /* Compressor CX2 Model — Premium dual-stage reciprocating shape */
+      const crankcaseMat = new THREE.MeshStandardMaterial({
+        color: dark ? '#1e293b' : '#475569', roughness: 0.5, metalness: 0.4
+      });
+      const crankcase = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.4, 1.8), crankcaseMat);
+      crankcase.position.y = -0.5;
+      crankcase.castShadow = true;
+      motorGroup.add(crankcase);
+
+      const cylMat = new THREE.MeshStandardMaterial({
+        color: dark ? '#334155' : '#64748b', roughness: 0.6, metalness: 0.3
+      });
+      const capMat = new THREE.MeshStandardMaterial({
+        color: dark ? '#475569' : '#94a3b8', roughness: 0.5, metalness: 0.5
+      });
+      [-0.5, 0.5].forEach(x => {
+        const cyl = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 1.2, 16), cylMat);
+        cyl.position.set(x, 0.6, 0);
+        cyl.castShadow = true;
+        motorGroup.add(cyl);
+
+        // Cylinder cooling fins
+        for (let f = 0; f < 4; f++) {
+          const fin = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.05, 8, 16), cylMat);
+          fin.position.set(x, 0.2 + f * 0.25, 0);
+          fin.rotation.x = Math.PI / 2;
+          fin.castShadow = true;
+          motorGroup.add(fin);
+        }
+
+        const cap = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 0.15, 16), capMat);
+        cap.position.set(x, 1.25, 0);
+        cap.castShadow = true;
+        motorGroup.add(cap);
+      });
+
+      // Intercooling pipe
+      const pipeMat = new THREE.MeshStandardMaterial({
+        color: '#94a3b8', roughness: 0.2, metalness: 0.8
+      });
+      const pipeHorizontal = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 1.0, 8), pipeMat);
+      pipeHorizontal.rotation.z = Math.PI / 2;
+      pipeHorizontal.position.set(0, 1.45, 0.2);
+      pipeHorizontal.castShadow = true;
+      motorGroup.add(pipeHorizontal);
+
+      [-0.5, 0.5].forEach(x => {
+        const pipeLeg = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.3, 8), pipeMat);
+        pipeLeg.position.set(x, 1.35, 0.2);
+        pipeLeg.castShadow = true;
+        motorGroup.add(pipeLeg);
+      });
+
+      // Shaft and Flywheel
+      const shaftMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.9, roughness: 0.1 });
+      const shaftMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 3.2, 16), shaftMat);
+      shaftMesh.rotation.z = Math.PI / 2;
+      shaftMesh.position.x = 0.5;
+      shaftMesh.castShadow = true;
+      shaftGroup.add(shaftMesh);
+
+      const flywheelGroup = new THREE.Group();
+      flywheelGroup.position.set(-1.1, -0.5, 0);
+      flywheelGroup.rotation.y = Math.PI / 2;
+
+      const rimMat = new THREE.MeshStandardMaterial({ color: dark ? '#a78bfa' : '#6366f1', metalness: 0.7, roughness: 0.3 });
+      const flywheelRim = new THREE.Mesh(new THREE.TorusGeometry(0.7, 0.08, 16, 32), rimMat);
+      flywheelRim.castShadow = true;
+      flywheelGroup.add(flywheelRim);
+
+      const spokeMat = new THREE.MeshStandardMaterial({ color: '#64748b', metalness: 0.8, roughness: 0.2 });
+      for (let s = 0; s < 4; s++) {
+        const spoke = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.3, 0.06), spokeMat);
+        spoke.rotation.z = (s / 4) * Math.PI;
+        spoke.castShadow = true;
+        flywheelGroup.add(spoke);
+      }
+      shaftGroup.add(flywheelGroup);
+
+      // Bearings
+      bearings = [-0.9, 0.9].map(x => {
+        const mat = new THREE.MeshStandardMaterial({
+          color: initBearingColor, emissive: initBearingColor,
+          emissiveIntensity: pc0.min, metalness: 0.7, roughness: 0.3
+        });
+        const torus = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.08, 16, 32), mat);
+        torus.position.set(x, -0.5, 0);
+        torus.rotation.y = Math.PI / 2;
+        torus.castShadow = true;
+        motorGroup.add(torus);
+        return torus;
+      });
+
+      const baseMat = new THREE.MeshStandardMaterial({
+        color: dark ? '#111827' : '#94a3b8', roughness: 0.9, metalness: 0.1
+      });
+      const base = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.3, 2.2), baseMat);
+      base.position.y = -1.35;
+      base.receiveShadow = true;
+      motorGroup.add(base);
+
+    } else if (machine === 'Pump PX1') {
+      /* Pump PX1 Model — Centrifugal volute and impeller pump */
+      const casingMat = new THREE.MeshStandardMaterial({
+        color: dark ? '#1e3a8a' : '#2563eb', roughness: 0.5, metalness: 0.4
+      });
+      const volute = new THREE.Mesh(new THREE.CylinderGeometry(1.0, 1.05, 0.7, 32), casingMat);
+      volute.rotation.z = Math.PI / 2;
+      volute.position.set(-0.5, -0.3, 0);
+      volute.castShadow = true;
+      motorGroup.add(volute);
+
+      const pipeMat = new THREE.MeshStandardMaterial({ color: '#64748b', metalness: 0.6, roughness: 0.3 });
+      const suctionPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1.2, 16), pipeMat);
+      suctionPipe.rotation.z = Math.PI / 2;
+      suctionPipe.position.set(-1.4, -0.3, 0);
+      suctionPipe.castShadow = true;
+      motorGroup.add(suctionPipe);
+
+      const flangeMat = new THREE.MeshStandardMaterial({ color: '#475569', metalness: 0.8, roughness: 0.2 });
+      const suctionFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.12, 16), flangeMat);
+      suctionFlange.rotation.z = Math.PI / 2;
+      suctionFlange.position.set(-2.0, -0.3, 0);
+      suctionFlange.castShadow = true;
+      motorGroup.add(suctionFlange);
+
+      const dischargePipe = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 1.0, 16), pipeMat);
+      dischargePipe.position.set(-0.5, 0.7, 0);
+      dischargePipe.castShadow = true;
+      motorGroup.add(dischargePipe);
+
+      const dischargeFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.12, 16), flangeMat);
+      dischargeFlange.position.set(-0.5, 1.2, 0);
+      dischargeFlange.castShadow = true;
+      motorGroup.add(dischargeFlange);
+
+      const bracketMat = new THREE.MeshStandardMaterial({ color: dark ? '#1e293b' : '#475569', metalness: 0.3, roughness: 0.6 });
+      const bracket = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 1.1, 16), bracketMat);
+      bracket.rotation.z = Math.PI / 2;
+      bracket.position.set(0.4, -0.4, 0);
+      bracket.castShadow = true;
+      motorGroup.add(bracket);
+
+      const shaftMat = new THREE.MeshStandardMaterial({ color: '#cbd5e1', metalness: 0.95, roughness: 0.1 });
+      const shaftMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.14, 2.2, 16), shaftMat);
+      shaftMesh.rotation.z = Math.PI / 2;
+      shaftMesh.position.set(0.65, -0.4, 0);
+      shaftMesh.castShadow = true;
+      shaftGroup.add(shaftMesh);
+
+      const couplingMat = new THREE.MeshStandardMaterial({ color: '#334155', metalness: 0.8, roughness: 0.3 });
+      const coupling = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 0.35, 12), couplingMat);
+      coupling.rotation.z = Math.PI / 2;
+      coupling.position.set(1.4, -0.4, 0);
+      coupling.castShadow = true;
+      shaftGroup.add(coupling);
+
+      // Bearings
+      bearings = [0.1, 0.7].map(x => {
+        const mat = new THREE.MeshStandardMaterial({
+          color: initBearingColor, emissive: initBearingColor,
+          emissiveIntensity: pc0.min, metalness: 0.7, roughness: 0.3
+        });
+        const torus = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.08, 16, 32), mat);
+        torus.position.set(x, -0.4, 0);
+        torus.rotation.y = Math.PI / 2;
+        torus.castShadow = true;
+        motorGroup.add(torus);
+        return torus;
+      });
+
+      const baseMat = new THREE.MeshStandardMaterial({ color: dark ? '#0f172a' : '#64748b', metalness: 0.2, roughness: 0.8 });
+      const base = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.3, 1.8), baseMat);
+      base.position.set(-0.2, -1.35, 0);
+      base.receiveShadow = true;
+      motorGroup.add(base);
+
+    } else {
+      /* Default: Motor MK7 */
+      const bodyMat = new THREE.MeshStandardMaterial({
+        color: dark ? '#2d3748' : '#64748b', roughness: 0.7, metalness: 0.35,
+      });
+      const body = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.2, 3, 32), bodyMat);
+      body.rotation.z = Math.PI / 2;
+      body.castShadow = true;
+      motorGroup.add(body);
+
+      const capMat = new THREE.MeshStandardMaterial({
+        color: dark ? '#374151' : '#6b7280', roughness: 0.6, metalness: 0.4,
+      });
+      [1.52, -1.52].forEach((x, i) => {
+        const cap = new THREE.Mesh(new THREE.CircleGeometry(1.2, 32), capMat);
+        cap.position.x = x;
+        cap.rotation.y = i === 0 ? Math.PI / 2 : -Math.PI / 2;
+        motorGroup.add(cap);
+      });
+
+      const shaftMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', metalness: 0.8, roughness: 0.2 });
+      const shaftMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 5.2, 16), shaftMat);
+      shaftMesh.rotation.z = Math.PI / 2;
+      shaftMesh.castShadow = true;
+      shaftGroup.add(shaftMesh);
+
+      bearings = [-1.8, -0.6, 0.6, 1.8].map(x => {
+        const mat = new THREE.MeshStandardMaterial({
+          color: initBearingColor, emissive: initBearingColor,
+          emissiveIntensity: pc0.min, metalness: 0.7, roughness: 0.3,
+        });
+        const torus = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.12, 16, 32), mat);
+        torus.position.x = x;
+        torus.rotation.y = Math.PI / 2;   /* ring around X axis */
+        torus.castShadow = true;
+        motorGroup.add(torus);
+        return torus;
+      });
+
+      const finMat = new THREE.MeshStandardMaterial({
+        color: dark ? '#1e293b' : '#475569', roughness: 0.8, metalness: 0.2,
+      });
+      for (let i = 0; i < 8; i++) {
+        const angle = (i / 8) * Math.PI * 2;
+        const fin = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.6, 0.08), finMat);
+        fin.position.set(0, Math.sin(angle) * 1.28, Math.cos(angle) * 1.28);
+        fin.rotation.x = angle;
+        fin.castShadow = true;
+        motorGroup.add(fin);
+      }
+
+      const baseMat = new THREE.MeshStandardMaterial({
+        color: dark ? '#1a2332' : '#94a3b8', roughness: 0.9, metalness: 0.1,
+      });
+      const base = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.3, 2.0), baseMat);
+      base.position.y = -1.3;
+      base.receiveShadow = true;
+      motorGroup.add(base);
+
+      const boltMat = new THREE.MeshStandardMaterial({ color: '#6b7280', metalness: 0.8, roughness: 0.3 });
+      [[-1.4, -0.8], [-1.4, 0.8], [1.4, -0.8], [1.4, 0.8]].forEach(([x, z]) => {
+        const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.4, 8), boltMat);
+        bolt.position.set(x, -1.15, z);
+        motorGroup.add(bolt);
+      });
     }
 
-    /* Mounting base */
-    const baseMat = new THREE.MeshStandardMaterial({
-      color: dark ? '#1a2332' : '#94a3b8', roughness: 0.9, metalness: 0.1,
-    });
-    const base = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.3, 2.0), baseMat);
-    base.position.y = -1.3;
-    base.receiveShadow = true;
-    motorGroup.add(base);
-
-    /* Bolts */
-    const boltMat = new THREE.MeshStandardMaterial({ color: '#6b7280', metalness: 0.8, roughness: 0.3 });
-    [[-1.4, -0.8], [-1.4, 0.8], [1.4, -0.8], [1.4, 0.8]].forEach(([x, z]) => {
-      const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 0.4, 8), boltMat);
-      bolt.position.set(x, -1.15, z);
-      motorGroup.add(bolt);
-    });
-
-    /* Ground plane */
+    /* ── Ground plane ─────────────────────────────────────── */
     const groundMat = new THREE.MeshStandardMaterial({
       color: dark ? '#0a0f1a' : '#cbd5e1',
       roughness: 1.0, metalness: 0, transparent: true, opacity: 0.8,
@@ -443,7 +620,7 @@ function TwinView3DInner({ sensorData, status = 'NORMAL', theme = 'dark', machin
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
       sceneRef.current = null;
     };
-  }, []); /* mount once */
+  }, [machine]);
 
   /* ── Status badge styles ──────────────────────────── */
   const stColor = status === 'CRITICAL' ? 'var(--color-status-critical)' : status === 'WARNING' ? 'var(--color-status-warning)' : 'var(--color-status-normal)';

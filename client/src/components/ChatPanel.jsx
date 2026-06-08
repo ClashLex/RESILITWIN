@@ -85,14 +85,48 @@ export default function ChatPanel({ isOpen, onClose, snapshot, latest, aiAlerts 
   const [showMenu,      setShowMenu]      = useState(false);
   const [listening,     setListening]     = useState(false);
   const [showAll,       setShowAll]       = useState(false);
+  const [aiStatus,      setAiStatus]      = useState({ online: false, model: '', provider: '' });
   const bottomRef = useRef(null);
   const inputRef  = useRef(null);
+
+  const apiBase = import.meta.env.VITE_BACKEND_URL
+    ? `${window.location.protocol}//${import.meta.env.VITE_BACKEND_URL}`
+    : '';
 
   // Auto-scroll
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, aiAlerts]);
 
   // Focus input on open
   useEffect(() => { if (isOpen) setTimeout(() => inputRef.current?.focus(), 350); }, [isOpen]);
+
+  // Fetch AI status
+  useEffect(() => {
+    const fetchAiStatus = async () => {
+      try {
+        const res = await fetch(`${apiBase}/api/ai-status`);
+        if (res.ok) {
+          const data = await res.json();
+          setAiStatus(data);
+        }
+      } catch {}
+    };
+    if (isOpen) {
+      fetchAiStatus();
+    }
+  }, [isOpen]);
+
+  const getModelName = () => {
+    if (!aiStatus.online) return 'Offline';
+    const slug = aiStatus.model || '';
+    if (slug.includes('deepseek')) return 'DeepSeek V3.2';
+    if (slug.includes('qwen')) return 'Qwen 2.5';
+    if (slug.includes('gemini')) return 'Gemini 2.0 Flash';
+    if (slug.includes('kimi')) return 'Kimi K2';
+    if (slug.includes('glm')) return 'GLM 4.5 Air';
+    const parts = slug.split('/');
+    const last = parts[parts.length - 1].split(':')[0];
+    return last.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
 
   // Auto-dismiss AI alerts after 30s
   useEffect(() => {
@@ -114,11 +148,21 @@ export default function ChatPanel({ isOpen, onClose, snapshot, latest, aiAlerts 
     setMessages(prev => [...prev, { id: aiId, role: 'ai', content: '', ts: Date.now(), streaming: true }]);
 
     try {
-      const resp = await fetch('/api/chat', {
+      const resp = await fetch(`${apiBase}/api/chat`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: msg, systemSnapshot: snapshot }),
         signal: AbortSignal.timeout(18000),
       });
+
+      if (!resp.ok) {
+        let errorMsg = `Server returned HTTP ${resp.status}`;
+        try {
+          const errData = await resp.json();
+          if (errData && errData.error) errorMsg = errData.error;
+        } catch {}
+        throw new Error(errorMsg);
+      }
+
       const reader = resp.body.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -138,7 +182,11 @@ export default function ChatPanel({ isOpen, onClose, snapshot, latest, aiAlerts 
         }
       }
     } catch (err) {
-      const em = err.name === 'TimeoutError' ? '⚠ Request timed out. Please try again.' : '⚠ Claude unavailable. Check API configuration.';
+      const em = err.name === 'TimeoutError'
+        ? '⚠ Request timed out. Please try again.'
+        : err.message.startsWith('Server returned') || err.message.includes('configured')
+        ? `⚠ ${err.message}`
+        : '⚠ Assistant unavailable. Check server config.';
       setMessages(prev => prev.map(m => m.id === aiId ? { ...m, content: em, streaming: false, error: true } : m));
       setIsStreaming(false);
     }
@@ -199,7 +247,9 @@ export default function ChatPanel({ isOpen, onClose, snapshot, latest, aiAlerts 
         <div className="chat-header">
           <div className="chat-header-left">
             <span className="chat-title">🤖 ResiliTwin AI</span>
-            <span className="chat-subtitle">Powered by Claude</span>
+            <span className="chat-subtitle">
+              {aiStatus.online ? `🟢 Powered by ${getModelName()}` : '🔴 AI Offline'}
+            </span>
           </div>
           <div className="chat-header-right">
             <div className="chat-status-pill" style={{ borderColor: statusColor, color: statusColor }}>

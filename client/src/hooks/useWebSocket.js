@@ -12,7 +12,7 @@ function makeAlert(data) {
   return { id: Date.now() + Math.random(), timestamp: data.timestamp, severity: data.status, message: msg };
 }
 
-export function useWebSocket() {
+export function useWebSocket(machine = 'Motor MK7') {
   const [latest,       setLatest]       = useState(null);
   const [history,      setHistory]      = useState([]);
   const [alerts,       setAlerts]       = useState([]);
@@ -23,9 +23,19 @@ export function useWebSocket() {
   const wsRef          = useRef(null);
   const reconnectTimer = useRef(null);
 
+  // Reset states on machine change
+  useEffect(() => {
+    setLatest(null);
+    setHistory([]);
+    setAlerts([]);
+    setAllAlerts([]);
+    setInitializing(true);
+  }, [machine]);
+
   const connect = useCallback(() => {
+    const backendHost = import.meta.env.VITE_BACKEND_URL || window.location.host;
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+    const ws = new WebSocket(`${protocol}//${backendHost}/ws?machine=${encodeURIComponent(machine)}`);
     wsRef.current = ws;
 
     ws.onopen = () => {
@@ -70,7 +80,7 @@ export function useWebSocket() {
         }
       } catch {}
     };
-  }, []);
+  }, [machine]);
 
   useEffect(() => {
     connect();

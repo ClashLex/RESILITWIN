@@ -3,6 +3,7 @@ const cors     = require('cors');
 const http     = require('http');
 const { WebSocketServer } = require('ws');
 
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -14,56 +15,118 @@ const OPENROUTER_URL     = 'https://openrouter.ai/api/v1/chat/completions';
 const APP_REFERER        = process.env.APP_REFERER || 'http://localhost:3000';
 const APP_TITLE          = process.env.APP_TITLE   || 'RESILITWIN OS';
 
-const SYSTEM_PROMPT_TEMPLATE = `You are ResiliTwin AI, an expert industrial safety monitoring assistant integrated into a real-time Digital Twin dashboard for an industrial motor system.
+const SYSTEM_PROMPT_TEMPLATE = `You are ResiliTwin AI, an industrial safety monitoring assistant embedded in a real-time Digital Twin dashboard.
 
-You have access to the following LIVE system data:
+Live system data:
 {{SYSTEM_SNAPSHOT}}
 
-Your job:
-- Answer questions about the machine's current health using actual values from the snapshot
-- Explain what sensor readings mean in practical terms
-- Give maintenance recommendations based on real data
-- Predict risks and suggest concrete actions
-- If status is CRITICAL, always open with a prominent warning
-- Use **bold** for headers, \`code\` for values, and bullet points for lists
-- Never invent data — only use what is in the snapshot`;
+Answer questions using actual values from the snapshot — never invent data. Explain sensor readings in practical terms, recommend maintenance actions based on the data, and predict risks. If the status is CRITICAL, lead with a clear warning. Format with **bold** headers, \`code\` for values, and bullet lists.`;
 
 /* ── Sensor simulation state ───────────────────────────── */
 const HISTORY_LIMIT  = 60;
 const DEVICE_TIMEOUT = 5000;
-const history = [];
-let vibrationBase         = 0.5;
+const MACHINES = ['Motor MK7', 'Compressor CX2', 'Pump PX1'];
+let activeMachine = 'Motor MK7';
 let liveMode              = false;
 let lastDeviceMessageTime = 0;
 
 function clamp(v, mn, mx) { return Math.min(Math.max(v, mn), mx); }
 function rand(mn, mx)     { return Math.random() * (mx - mn) + mn; }
 
-function generateSensorData() {
-  vibrationBase += 0.05 + rand(-0.02, 0.02);
-  if (vibrationBase >= 9.5) vibrationBase = 0.5;
-  const vibration   = clamp(vibrationBase + rand(-0.2, 0.2), 0.5, 9.5);
-  const temperature = clamp(70 + rand(-5, 5) + vibration * 0.4, 55, 95);
-  const voltage     = clamp(225 + rand(-7.5, 7.5), 210, 240);
-  const current     = clamp(11.5 + rand(-1.5, 1.5) + vibration * 0.15, 8, 15);
-  const rul         = Math.round(clamp(100 - (vibration / 9.5) * 100, 0, 100) * 1.2);
-  const status      = vibration > 7 ? 'CRITICAL' : vibration >= 4 ? 'WARNING' : 'NORMAL';
-  return {
-    timestamp:   new Date().toISOString(),
-    vibration:   parseFloat(vibration.toFixed(3)),
-    temperature: parseFloat(temperature.toFixed(2)),
-    voltage:     parseFloat(voltage.toFixed(2)),
-    current:     parseFloat(current.toFixed(3)),
-    rul, status,
-    anomaly: vibration > 7,
-  };
+const machineStates = {
+  'Motor MK7': {
+    vibrationBase: 0.5,
+    history: [],
+    generateSensorData: function() {
+      this.vibrationBase += 0.05 + rand(-0.02, 0.02);
+      if (this.vibrationBase >= 9.5) this.vibrationBase = 0.5;
+      const vibration   = clamp(this.vibrationBase + rand(-0.2, 0.2), 0.5, 9.5);
+      const temperature = clamp(60 + rand(-4, 4) + vibration * 0.4, 45, 85);
+      const voltage     = clamp(228 + rand(-5, 5), 215, 240);
+      const current     = clamp(10.2 + rand(-1.0, 1.0) + vibration * 0.12, 7, 13);
+      const rul         = Math.round(clamp(100 - (vibration / 9.5) * 100, 0, 100) * 1.2);
+      const status      = vibration > 7 ? 'CRITICAL' : vibration >= 4 ? 'WARNING' : 'NORMAL';
+      return {
+        timestamp:   new Date().toISOString(),
+        vibration:   parseFloat(vibration.toFixed(3)),
+        temperature: parseFloat(temperature.toFixed(2)),
+        voltage:     parseFloat(voltage.toFixed(2)),
+        current:     parseFloat(current.toFixed(3)),
+        rul, status,
+        anomaly: vibration > 7,
+      };
+    }
+  },
+  'Compressor CX2': {
+    vibrationBase: 2.2,
+    history: [],
+    generateSensorData: function() {
+      this.vibrationBase += 0.08 + rand(-0.04, 0.04);
+      if (this.vibrationBase >= 9.8) this.vibrationBase = 1.8;
+      const vibration   = clamp(this.vibrationBase + rand(-0.3, 0.3), 1.0, 9.8);
+      const temperature = clamp(74 + rand(-6, 6) + vibration * 0.5, 55, 96);
+      const voltage     = clamp(226 + rand(-6, 6), 210, 240);
+      const current     = clamp(12.8 + rand(-1.5, 1.5) + vibration * 0.18, 9, 16);
+      const rul         = Math.round(clamp(100 - (vibration / 9.8) * 100, 0, 100) * 1.1);
+      const status      = vibration > 7 ? 'CRITICAL' : vibration >= 4 ? 'WARNING' : 'NORMAL';
+      return {
+        timestamp:   new Date().toISOString(),
+        vibration:   parseFloat(vibration.toFixed(3)),
+        temperature: parseFloat(temperature.toFixed(2)),
+        voltage:     parseFloat(voltage.toFixed(2)),
+        current:     parseFloat(current.toFixed(3)),
+        rul, status,
+        anomaly: vibration > 7,
+      };
+    }
+  },
+  'Pump PX1': {
+    vibrationBase: 1.2,
+    history: [],
+    generateSensorData: function() {
+      this.vibrationBase += 0.06 + rand(-0.03, 0.03);
+      if (this.vibrationBase >= 9.6) this.vibrationBase = 0.8;
+      const vibration   = clamp(this.vibrationBase + rand(-0.25, 0.25), 0.8, 9.6);
+      const temperature = clamp(68 + rand(-5, 5) + vibration * 0.45, 50, 92);
+      const voltage     = clamp(230 + rand(-4, 4), 218, 242);
+      const current     = clamp(11.0 + rand(-1.2, 1.2) + vibration * 0.15, 8, 14);
+      const rul         = Math.round(clamp(100 - (vibration / 9.6) * 100, 0, 100) * 1.2);
+      const status      = vibration > 7 ? 'CRITICAL' : vibration >= 4 ? 'WARNING' : 'NORMAL';
+      return {
+        timestamp:   new Date().toISOString(),
+        vibration:   parseFloat(vibration.toFixed(3)),
+        temperature: parseFloat(temperature.toFixed(2)),
+        voltage:     parseFloat(voltage.toFixed(2)),
+        current:     parseFloat(current.toFixed(3)),
+        rul, status,
+        anomaly: vibration > 7,
+      };
+    }
+  }
+};
+
+// Prepopulate histories
+for (const m of MACHINES) {
+  const state = machineStates[m];
+  for (let i = 0; i < HISTORY_LIMIT; i++) {
+    const data = state.generateSensorData();
+    const time = new Date(Date.now() - (HISTORY_LIMIT - i) * 1000);
+    data.timestamp = time.toISOString();
+    state.history.push(data);
+  }
 }
 
-function pushAndBroadcast(data) {
-  history.push(data);
-  if (history.length > HISTORY_LIMIT) history.shift();
+function pushAndBroadcast(machine, data) {
+  const state = machineStates[machine];
+  if (!state) return;
+  state.history.push(data);
+  if (state.history.length > HISTORY_LIMIT) state.history.shift();
   const msg = JSON.stringify({ type: 'sensor', data });
-  wss.clients.forEach(c => { if (c.readyState === 1) c.send(msg); });
+  wss.clients.forEach(c => {
+    if (c.readyState === 1 && c.machine === machine) {
+      c.send(msg);
+    }
+  });
 }
 
 /* ── REST ─────────────────────────────────────────────── */
@@ -73,7 +136,26 @@ app.get('/api/ai-status', (_, res) => res.json({
   provider: 'openrouter',
   model:    OPENROUTER_MODEL,
 }));
-app.get('/api/history', (_, res) => res.json(history));
+app.get('/api/history', (req, res) => {
+  const machine = req.query.machine || activeMachine;
+  const state = machineStates[machine] || machineStates['Motor MK7'];
+  res.json(state.history);
+});
+
+app.get('/api/machine', (_, res) => {
+  res.json({ activeMachine });
+});
+
+app.post('/api/machine', (req, res) => {
+  const { machineId } = req.body;
+  if (MACHINES.includes(machineId)) {
+    activeMachine = machineId;
+    console.log(`Active machine set to ${activeMachine}`);
+    res.json({ activeMachine });
+  } else {
+    res.status(400).json({ error: `Invalid machineId: ${machineId}` });
+  }
+});
 
 app.get('/api/mode', (_, res) => {
   const active = liveMode && (Date.now() - lastDeviceMessageTime < DEVICE_TIMEOUT);
@@ -85,10 +167,16 @@ app.post('/api/mode', (req, res) => {
   res.json({ liveMode });
 });
 
-app.post('/api/trigger-anomaly', (_, res) => {
-  vibrationBase = 8.8;
-  console.log('Anomaly triggered — vibration spiked to critical');
-  res.json({ ok: true, message: 'Anomaly triggered' });
+app.post('/api/trigger-anomaly', (req, res) => {
+  const machine = req.body.machine || req.query.machine || activeMachine;
+  const state = machineStates[machine];
+  if (state) {
+    state.vibrationBase = 8.8;
+    console.log(`Anomaly triggered — vibration spiked for ${machine}`);
+    res.json({ ok: true, message: `Anomaly triggered for ${machine}` });
+  } else {
+    res.status(400).json({ error: `Invalid machine: ${machine}` });
+  }
 });
 
 /* ── OpenRouter chat (SSE streaming) ───────────────────── */
@@ -187,15 +275,28 @@ app.post('/api/chat', async (req, res) => {
 const server = http.createServer(app);
 const wss    = new WebSocketServer({ server });
 
-wss.on('connection', (ws) => {
-  if (history.length > 0) ws.send(JSON.stringify({ type: 'history', data: history }));
+wss.on('connection', (ws, req) => {
+  const params = new URL(req.url, 'http://localhost').searchParams;
+  const machine = params.get('machine') || activeMachine || 'Motor MK7';
+  ws.machine = machine;
+
+  const state = machineStates[machine] || machineStates['Motor MK7'];
+  if (state.history.length > 0) {
+    ws.send(JSON.stringify({ type: 'history', data: state.history }));
+  }
 
   ws.on('message', (raw) => {
     try {
       const data = JSON.parse(raw.toString());
       if (data.source) {
         lastDeviceMessageTime = Date.now();
-        if (liveMode) pushAndBroadcast(data);
+        if (liveMode) {
+          const machineData = {
+            ...data,
+            timestamp: new Date().toISOString(),
+          };
+          pushAndBroadcast(activeMachine, machineData);
+        }
       }
     } catch {}
   });
@@ -203,7 +304,16 @@ wss.on('connection', (ws) => {
   ws.on('error', (e) => console.error('WS error:', e.message));
 });
 
-setInterval(() => { if (!liveMode) pushAndBroadcast(generateSensorData()); }, 1000);
+setInterval(() => {
+  MACHINES.forEach(m => {
+    const isActive = (m === activeMachine);
+    const isLive = liveMode && (Date.now() - lastDeviceMessageTime < DEVICE_TIMEOUT);
+    if (!isActive || !isLive) {
+      const data = machineStates[m].generateSensorData();
+      pushAndBroadcast(m, data);
+    }
+  });
+}, 1000);
 
 const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => console.log(`Server → http://localhost:${PORT}`));

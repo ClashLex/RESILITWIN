@@ -1,0 +1,9 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "resilitwin"
+compatibility_date = "2026-06-08"
+pages_build_output_dir = "client/dist"
+
+[vars]
+# Remote Node.js Express server URL (without protocol)
+# e.g., "resilitwin-backend.yourhost.com"
+VITE_BACKEND_URL = ""
