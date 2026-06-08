@@ -1,6 +1,6 @@
 import React from 'react';
 
-const CX = 110, CY = 108, R = 88;
+const CX = 120, CY = 115, R = 80;
 
 function arcPoint(angle) {
   return { x: CX + R * Math.cos(angle), y: CY - R * Math.sin(angle) };
@@ -11,8 +11,7 @@ function foregroundPath(rul) {
   if (frac <= 0) return null;
   const end   = arcPoint(Math.PI * (1 - frac));
   const start = arcPoint(Math.PI);
-  const largeArc = frac > 0.5 ? 1 : 0;
-  return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${R} ${R} 0 ${largeArc} 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
+  return `M ${start.x.toFixed(2)} ${start.y.toFixed(2)} A ${R} ${R} 0 0 1 ${end.x.toFixed(2)} ${end.y.toFixed(2)}`;
 }
 
 function rulColor(rul) {
@@ -36,7 +35,7 @@ export default function RulGauge({ rul = 0 }) {
 
   return (
     <div className="rul-gauge-wrap">
-      <svg viewBox="0 0 220 130" className="rul-gauge-svg no-theme-transition">
+      <svg viewBox="0 0 240 160" className="rul-gauge-svg no-theme-transition">
         {/* Track */}
         <path d={bgPath} fill="none" stroke="var(--bg-secondary)" strokeWidth="14" strokeLinecap="round" />
 
@@ -49,8 +48,8 @@ export default function RulGauge({ rul = 0 }) {
         {/* Tick marks */}
         {[0, 0.25, 0.5, 0.75, 1].map(t => {
           const a     = Math.PI * (1 - t);
-          const inner = { x: CX + (R - 10) * Math.cos(a), y: CY - (R - 10) * Math.sin(a) };
-          const outer = { x: CX + (R + 10) * Math.cos(a), y: CY - (R + 10) * Math.sin(a) };
+          const inner = { x: CX + (R - 8) * Math.cos(a), y: CY - (R - 8) * Math.sin(a) };
+          const outer = { x: CX + (R + 8) * Math.cos(a), y: CY - (R + 8) * Math.sin(a) };
           return <line key={t} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} stroke="var(--border)" strokeWidth="2" />;
         })}
 
@@ -60,7 +59,7 @@ export default function RulGauge({ rul = 0 }) {
           const a = Math.PI * (1 - t);
           return (
             <text key={v}
-              x={CX + (R + 22) * Math.cos(a)} y={CY - (R + 22) * Math.sin(a)}
+              x={CX + (R + 18) * Math.cos(a)} y={CY - (R + 18) * Math.sin(a)}
               textAnchor="middle" dominantBaseline="middle"
               fill="var(--text-muted)" fontSize="9" fontFamily="var(--font-mono)">
               {v}
@@ -69,19 +68,19 @@ export default function RulGauge({ rul = 0 }) {
         })}
 
         {/* Center value */}
-        <text x={CX} y={CY - 14} textAnchor="middle" dominantBaseline="middle"
+        <text x={CX} y={CY - 10} textAnchor="middle" dominantBaseline="middle"
           fill={color} fontSize="38" fontWeight="900" fontFamily="var(--font-mono)">
           {rul}
         </text>
 
         {/* Days label */}
-        <text x={CX} y={CY + 20} textAnchor="middle"
+        <text x={CX} y={CY + 16} textAnchor="middle"
           fill="var(--text-muted)" fontSize="10" fontFamily="'Inter', system-ui, sans-serif" fontWeight="600" letterSpacing="2">
           DAYS
         </text>
 
         {/* Status label */}
-        <text x={CX} y={CY + 36} textAnchor="middle"
+        <text x={CX} y={CY + 32} textAnchor="middle"
           fill={color} fontSize="9" fontFamily="var(--font-mono)" fontWeight="700" letterSpacing="3">
           {rulLabel(rul)}
         </text>
